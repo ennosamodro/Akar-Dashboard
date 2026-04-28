@@ -745,22 +745,41 @@ function startApp() {
   loadData();
 }
 
-async function loadData() {
+function loadData() {
   if (isDemoMode) { renderAll(); return; }
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=get');
-    const json = await res.json();
-    if (json.success) {
-      allData = json.data;
-      document.getElementById('topbarMeta').textContent = 'Terhubung ke Sheets';
-    } else { throw new Error(json.error); }
-  } catch(e) {
-    showToast('Fallback ke data demo — cek koneksi', 'error');
-    isDemoMode = true;
-    allData = getDemoData();
-    document.getElementById('topbarMeta').textContent = 'Demo Mode';
-  }
-  renderAll();
+  return new Promise((resolve) => {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    
+    window[cbName] = function(json) {
+      delete window[cbName];
+      document.body.removeChild(script);
+      if (json.success) {
+        allData = json.data;
+        document.getElementById('topbarMeta').textContent = 'Terhubung ke Sheets';
+      } else {
+        showToast('Error: ' + (json.error || 'Unknown'), 'error');
+        allData = getDemoData();
+        isDemoMode = true;
+        document.getElementById('topbarMeta').textContent = 'Demo Mode';
+      }
+      renderAll();
+      resolve();
+    };
+    
+    script.onerror = function() {
+      delete window[cbName];
+      showToast('Koneksi gagal - cek Apps Script URL', 'error');
+      allData = getDemoData();
+      isDemoMode = true;
+      document.getElementById('topbarMeta').textContent = 'Demo Mode';
+      renderAll();
+      resolve();
+    };
+    
+    script.src = SCRIPT_URL + '?action=get&callback=' + cbName;
+    document.body.appendChild(script);
+  });
 }
 
 function getDemoData() {
@@ -931,14 +950,26 @@ async function submitForm() {
     showToast('Tersimpan di demo (tidak sync ke Sheets)', 'success');
     clearForm(); renderAll(); setTab('map');
   } else {
-    try {
-      const res = await fetch(SCRIPT_URL + '?action=add&data=' + encodeURIComponent(JSON.stringify(data)));
-      const json = await res.json();
-      if (json.success) {
-        showToast('Komunitas berhasil disimpan ✓', 'success');
-        clearForm(); await loadData(); setTab('map');
-      } else { showToast('Gagal: ' + (json.error||'error'), 'error'); }
-    } catch(e) { showToast('Koneksi gagal', 'error'); }
+    const cbName = 'cb_add_' + Date.now();
+    const script = document.createElement('script');
+    await new Promise((resolve) => {
+      window[cbName] = function(json) {
+        delete window[cbName];
+        document.body.removeChild(script);
+        if (json.success) {
+          showToast('Komunitas berhasil disimpan ✓', 'success');
+          clearForm(); loadData().then(() => setTab('map'));
+        } else { showToast('Gagal: ' + (json.error||'error'), 'error'); }
+        resolve();
+      };
+      script.onerror = function() {
+        delete window[cbName];
+        showToast('Koneksi gagal', 'error');
+        resolve();
+      };
+      script.src = SCRIPT_URL + '?action=add&callback=' + cbName + '&data=' + encodeURIComponent(JSON.stringify(data));
+      document.body.appendChild(script);
+    });
   }
   btn.disabled = false; btn.textContent = 'Simpan ke Database';
 }
