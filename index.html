@@ -896,7 +896,12 @@ function renderTable() {
   document.getElementById('tableBody').innerHTML = filteredData.map(d => {
     const isV = d['Status Verifikasi'] === 'Verified';
     const kat = d['Kategori'] || 'Other';
-    const contactTd = isPitch ? '' : `<td>${d['Nama Ketua']?`<div style="font-size:12px;font-weight:600;">${d['Nama Ketua']}</div>`:''}${d['No WhatsApp']?`<div style="font-size:11px;color:#78716C;">${d['No WhatsApp']}</div>`:''}</td>`;
+    const contactTd = isPitch ? '' : '<td>' +
+      (d['Nama Ketua'] ? '<div style="font-size:12px;font-weight:600;">' + d['Nama Ketua'] + '</div>' : '') +
+      (d['No WhatsApp'] ? '<div style="font-size:11px;color:#78716C;">' + d['No WhatsApp'] + '</div>' : '') +
+      (d['Instagram'] ? '<div style="font-size:11px;color:#2563EB;">' + d['Instagram'] + '</div>' : '') +
+      (d['Frekuensi Kumpul'] ? '<div style="font-size:10px;color:#A8A29E;margin-top:2px;">⏱ ' + d['Frekuensi Kumpul'] + '</div>' : '') +
+      '</td>';
     return `<tr>
       <td><span class="badge ${isV?'badge-verified':'badge-registered'}">${isV?'✓ Verified':'Registered'}</span></td>
       <td>
